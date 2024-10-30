@@ -1,0 +1,72 @@
+Item,Category,Sub Category,Item Name,Price,Cost
+  100 ,Appetizers,Soups,Tomato Soup,0,0
+  101 ,Appetizers,Soups,Chicken Soup,15,13.05
+  102 ,Appetizers,Salads,Garden Salad,17,13.94
+  103 ,Appetizers,Salads,Caesar Salad,16,13.76
+  104 ,Appetizers,Appetizer Platters,Spring Rolls,16,13.28
+  105 ,Appetizers,Appetizer Platters,Samosas,20,18
+  106 ,Appetizers,Appetizer Platters,Bruschetta,15,12.15
+  107 ,Appetizers,Seafood,Shrimp Cocktail,15,12.15
+  108 ,Appetizers,Seafood,Calamari Rings,12,9.84
+  109 ,Appetizers,Seafood,Seafood Skewers,16,13.92
+  200 ,Main Courses,Meat Dishes,Steaks,176,144.32
+  201 ,Main Courses,Meat Dishes,Burgers,197,157.6
+  202 ,Main Courses,Meat Dishes,Pork Chops,162,136.08
+  203 ,Main Courses,Meat Dishes,Lamb Chops,184,161.92
+  204 ,Main Courses,Poultry,Chicken Breast,198,174.24
+  205 ,Main Courses,Poultry,Roasted Duck,109,87.2
+  206 ,Main Courses,Poultry,Turkey Dishes,181,146.61
+  207 ,Main Courses,Seafood,Grilled Fish,123,105.78
+  208 ,Main Courses,Seafood,Fried Fish,161,133.63
+  209 ,Main Courses,Seafood,Seafood Pasta,144,119.52
+  210 ,Main Courses,Seafood,Sushi Rolls,128,115.2
+  211 ,Main Courses,Pasta,Spaghetti,191,158.53
+  212 ,Main Courses,Pasta,Fettuccine,146,119.72
+  213 ,Main Courses,Pasta,Lasagna,151,123.82
+  214 ,Main Courses,Pasta,Ravioli,140,113.4
+  215 ,Main Courses,Vegan,Vegetable Stir-Fry,174,146.16
+  216 ,Main Courses,Vegan,Tofu Dishes,144,115.2
+  217 ,Main Courses,Vegan,Vegetarian Pasta,118,103.84
+  218 ,Main Courses,Vegan,Salads,194,168.78
+  300 ,Sides,None,None,45,40.5
+  301 ,Sides,Potatoes,Mashed Potatoes,26,21.32
+  302 ,Sides,Potatoes,French Fries,41,36.9
+  303 ,Sides,Potatoes,Roasted Potatoes,36,32.04
+  304 ,Sides,Potatoes,Potato Wedges,31,25.42
+  305 ,Sides,Vegetables,Steamed Vegetables,42,34.02
+  306 ,Sides,Vegetables,Grilled Vegetables,49,39.69
+  307 ,Sides,Vegetables,Mixed Vegetable Medley,30,25.5
+  308 ,Sides,Rice,Plain Rice,34,27.2
+  309 ,Sides,Rice,Fried Rice,20,17
+  310 ,Sides,Rice,Pilaf,28,24.08
+  311 ,Sides,Bread,Garlic Bread,28,23.8
+  312 ,Sides,Bread,Dinner Rolls,46,40.48
+  313 ,Sides,Bread,Naan Bread,44,37.4
+  400 ,Desserts,None,None,55,46.2
+  401 ,Desserts,Cakes,Chocolate Cake,44,39.6
+  402 ,Desserts,Cakes,Cheesecake,49,41.65
+  403 ,Desserts,Cakes,Carrot Cake,43,34.4
+  404 ,Desserts,Cakes,Tiramisu,60,48
+  405 ,Desserts,Ice Cream,Various Flavors with Toppings,51,43.35
+  406 ,Desserts,Pies,Apple Pie,57,49.02
+  407 ,Desserts,Pies,Cherry Pie,48,42.24
+  408 ,Desserts,Pies,Key Lime Pie,57,48.45
+  409 ,Desserts,Puddings,Chocolate Pudding,38,30.78
+  410 ,Desserts,Puddings,Rice Pudding,50,45
+  411 ,Desserts,Puddings,Custard,58,49.3
+  412 ,Desserts,Fruits,Fruit Salad,63,56.7
+  413 ,Desserts,Fruits,Sliced Fruits,43,35.69
+  414 ,Desserts,Fruits,Fruit Platter,31,26.35
+  500 ,Beverages,None,None,18,15.84
+  501 ,Beverages,Non-Alcoholic Drinks,Water,8,7.12
+  502 ,Beverages,Non-Alcoholic Drinks,Soda,8,6.8
+  503 ,Beverages,Non-Alcoholic Drinks,Juice,16,13.92
+  504 ,Beverages,Non-Alcoholic Drinks,Lemonade,8,6.56
+  505 ,Beverages,Non-Alcoholic Drinks,Iced Tea,9,7.38
+  506 ,Beverages,Non-Alcoholic Drinks,Coffee,6,5.4
+  507 ,Beverages,Alcoholic Drinks,Beer,8,6.88
+  508 ,Beverages,Alcoholic Drinks,Wine,10,8
+  509 ,Beverages,Alcoholic Drinks,Cocktails,10,8.8
+  510 ,Beverages,Alcoholic Drinks,Whiskey,17,14.62
+  511 ,Beverages,Alcoholic Drinks,Vodka,5,4.45
+  512 ,Beverages,Alcoholic Drinks,Liqueurs,10,8.6
