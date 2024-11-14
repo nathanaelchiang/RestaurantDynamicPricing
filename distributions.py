@@ -204,7 +204,7 @@ class CustomerAgent:
 # Usage Example
 if __name__ == "__main__":
     # Initialize the CustomerAgent with the path to your dataset
-    agent = CustomerAgent(data_path='../data_cleaning/Full_Dataset.csv')
+    agent = CustomerAgent(data_path='data_cleaning/Full_Dataset.csv')
 
     # Retrieve and display simulated demand data
     simulated_data = agent.get_simulated_data()

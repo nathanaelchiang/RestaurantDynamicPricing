@@ -205,14 +205,14 @@ class CustomerSimulator:
 
 # Example usage
 if __name__ == "__main__":
-    simulator = CustomerSimulator('../data_cleaning/Full_Dataset.csv')
+    simulator = CustomerSimulator('data_cleaning/Full_Dataset.csv')
 
     # Test normal price
     test_date = datetime(2024, 10, 30)
     print("\nTesting normal price:")
     simulation_result = simulator.simulate_day(
         item_id=209,
-        price=15.99,
+        price=29.00,
         date=test_date,
         initial_quantity=50
     )

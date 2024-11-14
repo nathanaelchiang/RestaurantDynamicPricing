@@ -252,5 +252,5 @@ class WeightCalculator:
 
 # Example usage
 if __name__ == "__main__":
-    calculator = WeightCalculator('../data_cleaning/Full_Dataset.csv')
+    calculator = WeightCalculator('data_cleaning/Full_Dataset.csv')
     calculator.print_analysis()
