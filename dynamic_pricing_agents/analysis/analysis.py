@@ -41,59 +41,74 @@ def prepare_daily_data(data_path, item_id, date):
 
 def generate_comparative_plots(results):
     """
-    Generate visualization comparing DQN and PPO performance
+    Generate visualization comparing DQN and PPO performance with teal and coral colors
     """
+    teal_color = '#008080'  # Teal
+    coral_color = '#FF6B6B'  # Coral/Salmon
+    plt.style.use('classic')
+
     # Create subplots
-    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12), facecolor='white')
+    fig.patch.set_facecolor('white')
 
     # 1. Daily Profits Comparison
     ax = axes[0, 0]
     days = range(len(results['dqn']['profits']))
-    ax.plot(days, results['dqn']['profits'], label='DQN', marker='o', color='blue')
-    ax.plot(days, results['ppo']['profits'], label='PPO', marker='s', color='red')
-    ax.set_title('Daily Profits Comparison')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Profit')
-    ax.legend()
-    ax.grid(True)
+    ax.plot(days, results['dqn']['profits'], label='DQN', marker='o', color=teal_color, linewidth=2)
+    ax.plot(days, results['ppo']['profits'], label='PPO', marker='s', color=coral_color, linewidth=2)
+    ax.set_title('Daily Profits Comparison', pad=15, fontsize=12, fontweight='bold')
+    ax.set_xlabel('Day', fontsize=10)
+    ax.set_ylabel('Profit', fontsize=10)
+    ax.legend(frameon=True, facecolor='white', edgecolor='none')
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_facecolor('#f8f9fa')
 
     # 2. Price Distribution
     ax = axes[0, 1]
-    ax.hist(results['dqn']['prices'], bins=30, alpha=0.5, label='DQN', color='blue')
-    ax.hist(results['ppo']['prices'], bins=30, alpha=0.5, label='PPO', color='red')
-    ax.set_title('Price Distribution')
-    ax.set_xlabel('Price')
-    ax.set_ylabel('Count')
-    ax.legend()
-    ax.grid(True)
+    ax.hist(results['dqn']['prices'], bins=30, alpha=0.6, label='DQN', color=teal_color)
+    ax.hist(results['ppo']['prices'], bins=30, alpha=0.6, label='PPO', color=coral_color)
+    ax.set_title('Price Distribution', pad=15, fontsize=12, fontweight='bold')
+    ax.set_xlabel('Price', fontsize=10)
+    ax.set_ylabel('Count', fontsize=10)
+    ax.legend(frameon=True, facecolor='white', edgecolor='none')
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_facecolor('#f8f9fa')
 
     # 3. Price Stability (Rolling Variance)
     ax = axes[1, 0]
     dqn_variance = pd.Series(results['dqn']['prices']).rolling(10).var()
     ppo_variance = pd.Series(results['ppo']['prices']).rolling(10).var()
-    ax.plot(dqn_variance, label='DQN', color='blue')
-    ax.plot(ppo_variance, label='PPO', color='red')
-    ax.set_title('Price Stability (Rolling Variance)')
-    ax.set_xlabel('Time Step')
-    ax.set_ylabel('Price Variance')
-    ax.legend()
-    ax.grid(True)
+    ax.plot(dqn_variance, label='DQN', color=teal_color, linewidth=2)
+    ax.plot(ppo_variance, label='PPO', color=coral_color, linewidth=2)
+    ax.set_title('Price Stability (Rolling Variance)', pad=15, fontsize=12, fontweight='bold')
+    ax.set_xlabel('Time Step', fontsize=10)
+    ax.set_ylabel('Price Variance', fontsize=10)
+    ax.legend(frameon=True, facecolor='white', edgecolor='none')
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_facecolor('#f8f9fa')
 
     # 4. Sales vs Price Scatter
     ax = axes[1, 1]
     ax.scatter(results['dqn']['prices'], results['dqn']['sales'],
-               alpha=0.5, label='DQN', color='blue')
+               alpha=0.6, label='DQN', color=teal_color, s=50)
     ax.scatter(results['ppo']['prices'], results['ppo']['sales'],
-               alpha=0.5, label='PPO', color='red')
-    ax.set_title('Sales vs Price')
-    ax.set_xlabel('Price')
-    ax.set_ylabel('Sales Volume')
-    ax.legend()
-    ax.grid(True)
+               alpha=0.6, label='PPO', color=coral_color, s=50)
+    ax.set_title('Sales vs Price', pad=15, fontsize=12, fontweight='bold')
+    ax.set_xlabel('Price', fontsize=10)
+    ax.set_ylabel('Sales Volume', fontsize=10)
+    ax.legend(frameon=True, facecolor='white', edgecolor='none')
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.set_facecolor('#f8f9fa')
 
-    plt.tight_layout()
-    plt.savefig('algorithm_comparison.png')
-    print("Saved comparison plot as 'algorithm_comparison.png'")
+    # Remove top and right spines for all plots
+    for ax in axes.flat:
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#666666')
+        ax.spines['bottom'].set_color('#666666')
+
+    plt.tight_layout(pad=3.0)
+    plt.savefig('algorithm_comparison.png', dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
 
 
