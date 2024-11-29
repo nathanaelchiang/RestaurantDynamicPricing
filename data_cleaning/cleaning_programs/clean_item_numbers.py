@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 def clean_item_numbers(df):
     """
     Clean item numbers by removing any trailing spaces.
@@ -16,13 +15,6 @@ def clean_item_numbers(df):
 
     return df
 
-
-# Example usage:
-# Read the CSV
 data = pd.read_csv('../ItemPrices.csv')
-
-# Clean the item numbers
 cleaned_data = clean_item_numbers(data)
-
-# Save the cleaned data back to CSV
 cleaned_data.to_csv('ItemPrices_cleaned.csv', index=False)

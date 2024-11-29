@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime
 from scipy.optimize import curve_fit
 from scipy.stats import norm
 
@@ -45,7 +44,6 @@ class WeightCalculator:
                   ])
 
         try:
-            # Fit with better initial parameters and bounds
             hours = np.array(range(24))
             popt, _ = curve_fit(
                 triple_normal,
@@ -252,5 +250,5 @@ class WeightCalculator:
 
 # Example usage
 if __name__ == "__main__":
-    calculator = WeightCalculator('data_cleaning/Full_Dataset.csv')
+    calculator = WeightCalculator('../data_cleaning/Full_Dataset.csv')
     calculator.print_analysis()

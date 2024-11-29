@@ -1,12 +1,8 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import poisson
-from datetime import datetime
 
-# Load the dataset
 df = pd.read_csv('../data_cleaning/Full_Dataset.csv')
-
-# Convert Date to datetime
 df['Date'] = pd.to_datetime(df['Date'])
 
 
@@ -78,10 +74,7 @@ def simulate_demand(row, num_simulations=1000):
 # Apply simulation to each row
 df['Simulated_Demand'] = df.apply(simulate_demand, axis=1)
 
-# Display results
 print(df[['Date', 'Item', 'Season', 'Price', 'Quantity', 'Avg_Daily_Sales', 'Simulated_Demand']])
-
-# Further Analysis
 
 # Average Simulated Demand by Season
 season_demand = df.groupby('Season')['Simulated_Demand'].mean()

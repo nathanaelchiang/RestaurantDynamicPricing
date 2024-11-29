@@ -28,7 +28,7 @@ def update_quantity(df):
 
     for i, row in df.iterrows():
         item = row['Item']
-        if row['Date'] != current_day:  # If it's a new day, reset the quantities
+        if row['Date'] != current_day:
             current_day = row['Date']
             quantities = {item: row['Single Day High'] for item in df['Item'].unique()}
 

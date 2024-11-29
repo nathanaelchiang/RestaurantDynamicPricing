@@ -1,10 +1,5 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from scipy.stats import poisson, norm
+from datetime import datetime
 import random
-import time
-
 from customer_simulation import CustomerSimulator
 
 
@@ -54,7 +49,7 @@ class InteractiveCustomerSimulator(CustomerSimulator):
 
     def simulate_interactive_purchase(self, item_id, price, datetime_obj, quantity_available, agent_name):
         """
-        Simulate an interactive purchase with detailed narrative
+        Simulate an interactive purchase with narrative
         """
         customer = self.generate_customer()
         item_data = self.data[self.data['Item'] == item_id]
@@ -137,7 +132,7 @@ def run_interactive_simulation():
     """
     Run the interactive simulation with user input
     """
-    simulator = InteractiveCustomerSimulator('data_cleaning/Full_Dataset.csv')
+    simulator = InteractiveCustomerSimulator('../data_cleaning/Full_Dataset.csv')
 
     print("\nWelcome to the Interactive Customer Simulator!")
     print("============================================")

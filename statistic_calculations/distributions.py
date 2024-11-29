@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import poisson
-from datetime import datetime
 
 
 class CustomerAgent:
@@ -26,10 +25,7 @@ class CustomerAgent:
         Returns:
         - pd.DataFrame: Preprocessed DataFrame.
         """
-        # Load the dataset
         df = pd.read_csv(data_path)
-
-        # Convert 'Date' to datetime
         df['Date'] = pd.to_datetime(df['Date'])
 
         # Add 'Season' column
@@ -201,12 +197,9 @@ class CustomerAgent:
         return simulated_demands
 
 
-# Usage Example
 if __name__ == "__main__":
-    # Initialize the CustomerAgent with the path to your dataset
-    agent = CustomerAgent(data_path='data_cleaning/Full_Dataset.csv')
+    agent = CustomerAgent(data_path='../data_cleaning/Full_Dataset.csv')
 
-    # Retrieve and display simulated demand data
     simulated_data = agent.get_simulated_data()
     print("Sample Simulated Demand Data:")
     print(simulated_data.head())
@@ -222,18 +215,12 @@ if __name__ == "__main__":
         print(f"Item {item}: {demand:.2f}")
 
     # Calculate simulated demand for a specific item and season
-    specific_item = 511  # Example Item ID
-    specific_season = 'Winter'  # Example Season
-    try:
-        demand = agent.get_simulated_demand(item=specific_item, season=specific_season)
-        print(f"\nSimulated Demand for Item {specific_item} in {specific_season}: {demand:.2f} units/day")
-    except ValueError as e:
-        print(e)
+    specific_item = 511
+    specific_season = 'Winter'
 
-    # (Optional) Retrieve the simulated demand distribution for further analysis
-    try:
-        demand_distribution = agent.get_simulated_demand_distribution(item=specific_item, season=specific_season)
-        print(f"\nDemand Distribution for Item {specific_item} in {specific_season}:")
-        print(demand_distribution)
-    except ValueError as e:
-        print(e)
+    demand = agent.get_simulated_demand(item=specific_item, season=specific_season)
+    print(f"\nSimulated Demand for Item {specific_item} in {specific_season}: {demand:.2f} units/day")
+
+    demand_distribution = agent.get_simulated_demand_distribution(item=specific_item, season=specific_season)
+    print(f"\nDemand Distribution for Item {specific_item} in {specific_season}:")
+    print(demand_distribution)

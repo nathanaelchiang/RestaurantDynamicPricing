@@ -1,10 +1,6 @@
-# customer_simulation.py
-
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
 from scipy.stats import poisson, norm
-import random
 
 
 class CustomerSimulator:
@@ -22,7 +18,7 @@ class CustomerSimulator:
         """
         Calculate time-based purchasing patterns from historical data
         """
-        # Hour of day patterns (assuming 24-hour format)
+        # Hour of day patterns (24-hour format)
         self.hourly_patterns = {
             'breakfast': {'peak': 8, 'std': 1.5, 'weight': 0.3},
             'lunch': {'peak': 12, 'std': 1.5, 'weight': 0.4},
@@ -125,7 +121,7 @@ class CustomerSimulator:
         base_price = item_data['Price'].mean()
         base_demand = max(0.1, item_data['Count_x'].mean())
 
-        # Check price ceiling first
+        # Check price ceiling
         if price / base_price >= self.MAX_PRICE_RATIO:
             return 0
 
@@ -206,9 +202,9 @@ class CustomerSimulator:
         }
 
 
-# Example usage
+# Examples
 if __name__ == "__main__":
-    simulator = CustomerSimulator('data_cleaning/Full_Dataset.csv')
+    simulator = CustomerSimulator('../data_cleaning/Full_Dataset.csv')
 
     # Test normal price
     test_date = datetime(2024, 10, 30)
@@ -229,7 +225,7 @@ if __name__ == "__main__":
     print("\nTesting price above 200% of base price:")
     high_price_result = simulator.simulate_day(
         item_id=511,
-        price=50.00,  # Assuming this is more than 200% of base price
+        price=50.00,
         date=test_date,
         initial_quantity=50
     )
