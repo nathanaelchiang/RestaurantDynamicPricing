@@ -1,3 +1,5 @@
+# customer_simulation.py
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -60,12 +62,12 @@ class CustomerSimulator:
             }
         }
 
-    def get_time_multiplier(self, datetime):
+    def get_time_multiplier(self, datetime_obj):
         """
         Calculate demand multiplier based on time of day and day of week
         """
-        hour = datetime.hour
-        weekday = datetime.weekday()
+        hour = datetime_obj.hour
+        weekday = datetime_obj.weekday()
 
         # Calculate time of day effect using mixture of normal distributions
         time_multiplier = 0
@@ -107,7 +109,7 @@ class CustomerSimulator:
 
         return multiplier
 
-    def simulate_purchase_decision(self, item_id, price, datetime, quantity_available):
+    def simulate_purchase_decision(self, item_id, price, datetime_obj, quantity_available):
         """
         Simulate whether a purchase occurs based on all factors
 
@@ -117,6 +119,7 @@ class CustomerSimulator:
         # Get base parameters for the item
         item_data = self.data[self.data['Item'] == item_id]
         if item_data.empty:
+            print(f"No historical data found for Item ID {item_id}.")
             return 0
 
         base_price = item_data['Price'].mean()
@@ -127,7 +130,7 @@ class CustomerSimulator:
             return 0
 
         # Calculate various multipliers
-        time_mult = self.get_time_multiplier(datetime)
+        time_mult = self.get_time_multiplier(datetime_obj)
         price_mult = self.get_price_multiplier(price, base_price)
 
         # If price multiplier is 0, no purchase will occur
