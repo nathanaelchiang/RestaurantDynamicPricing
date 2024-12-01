@@ -39,12 +39,45 @@ def prepare_daily_data(data_path, item_id, date):
     return daily_data
 
 
-def generate_comparative_plots(results):
+def calculate_baseline_performance(data_path, item_info, item_id, date_range):
+    """Calculate performance metrics if price remained at baseline"""
+    baseline_results = {
+        'profits': [],
+        'prices': [],
+        'sales': []
+    }
+
+    # Get base price and cost for the item
+    item_data = item_info[item_info['Item'] == item_id].iloc[0]
+    base_price = item_data['Price']
+    cost = item_data['Cost']
+
+    print(f"\nBaseline Analysis for Item {item_id}:")
+    print(f"Base Price: ${base_price:.2f}")
+    print(f"Cost: ${cost:.2f}")
+    print(f"Base Profit Margin: ${base_price - cost:.2f} per unit")
+
+    for date in date_range:
+        daily_data = prepare_daily_data(data_path, item_id, date)
+        if not daily_data.empty:
+            # Calculate daily sales and profit with fixed price
+            daily_sales = daily_data['Quantity'].sum()
+            daily_profit = (base_price - cost) * daily_sales
+
+            baseline_results['profits'].append(daily_profit)
+            baseline_results['prices'].extend([base_price] * len(daily_data))
+            baseline_results['sales'].extend(daily_data['Quantity'].tolist())
+
+    return baseline_results
+
+
+def generate_comparative_plots(results, baseline_results):
     """
-    Generate visualization comparing DQN and PPO performance with teal and coral colors
+    Generate visualization comparing DQN and PPO performance with baseline
     """
-    teal_color = '#008080'  # Teal
-    coral_color = '#FF6B6B'  # Coral/Salmon
+    teal_color = '#008080'  # Teal for DQN
+    coral_color = '#FF6B6B'  # Coral for PPO
+    gray_color = '#808080'  # Gray for baseline
     plt.style.use('classic')
 
     # Create subplots
@@ -54,8 +87,12 @@ def generate_comparative_plots(results):
     # 1. Daily Profits Comparison
     ax = axes[0, 0]
     days = range(len(results['dqn']['profits']))
-    ax.plot(days, results['dqn']['profits'], label='DQN', marker='o', color=teal_color, linewidth=2)
-    ax.plot(days, results['ppo']['profits'], label='PPO', marker='s', color=coral_color, linewidth=2)
+    ax.plot(days, baseline_results['profits'], label='Baseline', color=gray_color,
+            linestyle='--', linewidth=2)
+    ax.plot(days, results['dqn']['profits'], label='DQN', marker='o',
+            color=teal_color, linewidth=2)
+    ax.plot(days, results['ppo']['profits'], label='PPO', marker='s',
+            color=coral_color, linewidth=2)
     ax.set_title('Daily Profits Comparison', pad=15, fontsize=12, fontweight='bold')
     ax.set_xlabel('Day', fontsize=10)
     ax.set_ylabel('Profit', fontsize=10)
@@ -65,8 +102,12 @@ def generate_comparative_plots(results):
 
     # 2. Price Distribution
     ax = axes[0, 1]
-    ax.hist(results['dqn']['prices'], bins=30, alpha=0.6, label='DQN', color=teal_color)
-    ax.hist(results['ppo']['prices'], bins=30, alpha=0.6, label='PPO', color=coral_color)
+    ax.hist(baseline_results['prices'], bins=30, alpha=0.6, label='Baseline',
+            color=gray_color)
+    ax.hist(results['dqn']['prices'], bins=30, alpha=0.6, label='DQN',
+            color=teal_color)
+    ax.hist(results['ppo']['prices'], bins=30, alpha=0.6, label='PPO',
+            color=coral_color)
     ax.set_title('Price Distribution', pad=15, fontsize=12, fontweight='bold')
     ax.set_xlabel('Price', fontsize=10)
     ax.set_ylabel('Count', fontsize=10)
@@ -76,8 +117,11 @@ def generate_comparative_plots(results):
 
     # 3. Price Stability (Rolling Variance)
     ax = axes[1, 0]
+    baseline_variance = pd.Series(baseline_results['prices']).rolling(10).var()
     dqn_variance = pd.Series(results['dqn']['prices']).rolling(10).var()
     ppo_variance = pd.Series(results['ppo']['prices']).rolling(10).var()
+    ax.plot(baseline_variance, label='Baseline', color=gray_color,
+            linestyle='--', linewidth=2)
     ax.plot(dqn_variance, label='DQN', color=teal_color, linewidth=2)
     ax.plot(ppo_variance, label='PPO', color=coral_color, linewidth=2)
     ax.set_title('Price Stability (Rolling Variance)', pad=15, fontsize=12, fontweight='bold')
@@ -89,6 +133,8 @@ def generate_comparative_plots(results):
 
     # 4. Sales vs Price Scatter
     ax = axes[1, 1]
+    ax.scatter(baseline_results['prices'], baseline_results['sales'],
+               alpha=0.6, label='Baseline', color=gray_color, s=50)
     ax.scatter(results['dqn']['prices'], results['dqn']['sales'],
                alpha=0.6, label='DQN', color=teal_color, s=50)
     ax.scatter(results['ppo']['prices'], results['ppo']['sales'],
@@ -134,6 +180,7 @@ def run_simulation(model, env, num_episodes=1):
             # Get action from model
             action = model.predict(obs, deterministic=True)[0]
 
+            # Handle both old and new step() return types
             step_result = env.step(action)
             if len(step_result) == 5:  # New Gymnasium API
                 obs, reward, terminated, truncated, info = step_result
@@ -155,12 +202,21 @@ def run_simulation(model, env, num_episodes=1):
     }
 
 
-def calculate_performance_metrics(results):
+def calculate_performance_metrics(results, baseline_results):
     """
-    Calculate key performance metrics for both algorithms
+    Calculate key performance metrics including baseline comparison and total profits
     """
     metrics = {
+        'Baseline': {
+            'total_profit': sum(baseline_results['profits']),
+            'average_daily_profit': np.mean(baseline_results['profits']),
+            'profit_std': np.std(baseline_results['profits']),
+            'price_stability': np.std(baseline_results['prices']),
+            'avg_price': np.mean(baseline_results['prices']),
+            'total_sales': sum(baseline_results['sales'])
+        },
         'DQN': {
+            'total_profit': sum(results['dqn']['profits']),
             'average_daily_profit': np.mean(results['dqn']['profits']),
             'profit_std': np.std(results['dqn']['profits']),
             'price_stability': np.std(results['dqn']['prices']),
@@ -168,6 +224,7 @@ def calculate_performance_metrics(results):
             'total_sales': sum(results['dqn']['sales'])
         },
         'PPO': {
+            'total_profit': sum(results['ppo']['profits']),
             'average_daily_profit': np.mean(results['ppo']['profits']),
             'profit_std': np.std(results['ppo']['profits']),
             'price_stability': np.std(results['ppo']['prices']),
@@ -177,7 +234,36 @@ def calculate_performance_metrics(results):
     }
 
     metrics_df = pd.DataFrame(metrics).round(2)
-    metrics_df['PPO_vs_DQN_%'] = ((metrics_df['PPO'] - metrics_df['DQN']) / metrics_df['DQN'] * 100).round(2)
+
+    # Calculate improvement percentages over baseline
+    for model in ['DQN', 'PPO']:
+        metrics_df[f'{model}_vs_Baseline_%'] = (
+                (metrics_df[model] - metrics_df['Baseline']) / metrics_df['Baseline'] * 100
+        ).round(2)
+
+    # Add PPO vs DQN comparison
+    metrics_df['PPO_vs_DQN_%'] = (
+            (metrics_df['PPO'] - metrics_df['DQN']) / metrics_df['DQN'] * 100
+    ).round(2)
+
+    # Add profit improvements in dollar terms
+    metrics_df['DQN_profit_improvement'] = (
+            metrics_df['DQN'] - metrics_df['Baseline']
+    ).round(2)
+    metrics_df['PPO_profit_improvement'] = (
+            metrics_df['PPO'] - metrics_df['Baseline']
+    ).round(2)
+    metrics_df['PPO_vs_DQN_profit_diff'] = (
+            metrics_df['PPO'] - metrics_df['DQN']
+    ).round(2)
+
+    # Reorder columns for better readability
+    column_order = [
+        'Baseline', 'DQN', 'PPO',
+        'DQN_vs_Baseline_%', 'PPO_vs_Baseline_%', 'PPO_vs_DQN_%',
+        'DQN_profit_improvement', 'PPO_profit_improvement', 'PPO_vs_DQN_profit_diff'
+    ]
+    metrics_df = metrics_df[column_order]
 
     return metrics_df
 
@@ -225,10 +311,23 @@ def run_comparative_analysis(item_id, date_range, dqn_model_path, ppo_model_path
 
 if __name__ == "__main__":
     # Example date and item
-    item_id = 106
-    start_date = datetime(2022, 1, 1)
-    date_range = [start_date + timedelta(days=x) for x in range(7)]  # One week analysis
+    item_id = 105  # Samosas
+    start_date = datetime(2022, 7, 1)
+    date_range = [start_date + timedelta(days=x) for x in range(30)]  # One month analysis
 
+    # Load item info for baseline calculation
+    item_info = pd.read_csv('../data_cleaning/ItemPrices_cleaned.csv')
+
+    # Calculate baseline performance
+    print("\nCalculating baseline performance...")
+    baseline_results = calculate_baseline_performance(
+        "../data_cleaning/Full_Dataset.csv",
+        item_info,
+        item_id,
+        date_range
+    )
+
+    # Run comparative analysis
     print("\nStarting comparative analysis...")
     results = run_comparative_analysis(
         item_id=item_id,
@@ -239,11 +338,25 @@ if __name__ == "__main__":
     )
 
     print("\nGenerating comparison plots...")
-    generate_comparative_plots(results)
+    generate_comparative_plots(results, baseline_results)
 
     print("\nCalculating performance metrics...")
-    metrics_df = calculate_performance_metrics(results)
-    print("\nPerformance Metrics:")
-    print(metrics_df)
+    metrics_df = calculate_performance_metrics(results, baseline_results)
 
+    # Print summary statistics
+    print("\nPerformance Metrics Summary:")
+    print(f"\nTotal Profits:")
+    print(f"Baseline: ${metrics_df.loc['total_profit', 'Baseline']:,.2f}")
+    print(f"DQN: ${metrics_df.loc['total_profit', 'DQN']:,.2f}")
+    print(f"PPO: ${metrics_df.loc['total_profit', 'PPO']:,.2f}")
+
+    print(f"\nProfit Improvements:")
+    print(f"DQN vs Baseline: ${metrics_df.loc['total_profit', 'DQN_profit_improvement']:,.2f} "
+          f"({metrics_df.loc['total_profit', 'DQN_vs_Baseline_%']:,.2f}%)")
+    print(f"PPO vs Baseline: ${metrics_df.loc['total_profit', 'PPO_profit_improvement']:,.2f} "
+          f"({metrics_df.loc['total_profit', 'PPO_vs_Baseline_%']:,.2f}%)")
+    print(f"PPO vs DQN: ${metrics_df.loc['total_profit', 'PPO_vs_DQN_profit_diff']:,.2f} "
+          f"({metrics_df.loc['total_profit', 'PPO_vs_DQN_%']:,.2f}%)")
+
+    # Save detailed metrics to CSV
     metrics_df.to_csv('performance_metrics.csv')

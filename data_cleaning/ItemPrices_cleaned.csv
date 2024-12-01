@@ -28,7 +28,6 @@ Item,Category,Sub Category,Item Name,Price,Cost
 216,Main Courses,Vegan,Tofu Dishes,144,115.2
 217,Main Courses,Vegan,Vegetarian Pasta,118,103.84
 218,Main Courses,Vegan,Salads,194,168.78
-300,Sides,,,45,40.5
 301,Sides,Potatoes,Mashed Potatoes,26,21.32
 302,Sides,Potatoes,French Fries,41,36.9
 303,Sides,Potatoes,Roasted Potatoes,36,32.04
@@ -57,7 +56,6 @@ Item,Category,Sub Category,Item Name,Price,Cost
 412,Desserts,Fruits,Fruit Salad,63,56.7
 413,Desserts,Fruits,Sliced Fruits,43,35.69
 414,Desserts,Fruits,Fruit Platter,31,26.35
-500,Beverages,,,18,15.84
 501,Beverages,Non-Alcoholic Drinks,Water,8,7.12
 502,Beverages,Non-Alcoholic Drinks,Soda,8,6.8
 503,Beverages,Non-Alcoholic Drinks,Juice,16,13.92
