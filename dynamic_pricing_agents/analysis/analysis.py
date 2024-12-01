@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import DQN, PPO
 from datetime import datetime, timedelta
 
+from tqdm import tqdm
+
 from dynamic_pricing_agents.DQN_agent.dqn import DynamicPricingEnvDQN
 from dynamic_pricing_agents.PPO_agent.ppo import DynamicPricingEnv
 
@@ -309,11 +311,170 @@ def run_comparative_analysis(item_id, date_range, dqn_model_path, ppo_model_path
     return results
 
 
-if __name__ == "__main__":
+def run_full_comparative_analysis(
+        dqn_model_path,
+        ppo_model_path,
+        data_path,
+        item_prices_path,
+        output_path="full_analysis_results.csv",
+        start_date=None,
+        end_date=None
+):
+    """
+    Run comparative analysis for all items over a full year period.
+
+    Parameters:
+    -----------
+    dqn_model_path : str
+        Path to the trained DQN model
+    ppo_model_path : str
+        Path to the trained PPO model
+    data_path : str
+        Path to the full dataset CSV
+    item_prices_path : str
+        Path to the cleaned item prices CSV
+    output_path : str
+        Path where to save the results CSV
+    start_date : datetime, optional
+        Start date for analysis (defaults to Jan 1, 2022)
+    end_date : datetime, optional
+        End date for analysis (defaults to Dec 31, 2022)
+
+    Returns:
+    --------
+    tuple
+        (item_metrics_df, overall_metrics_dict)
+    """
+    # Set default dates if not provided
+    if start_date is None:
+        start_date = datetime(2022, 1, 1)
+    if end_date is None:
+        end_date = datetime(2022, 12, 31)
+
+    # Generate date range
+    date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+
+    # Load item information
+    item_info = pd.read_csv(item_prices_path)
+
+    # Initialize results storage
+    all_items_results = []
+    overall_metrics = {
+        'total_baseline_profit': 0,
+        'total_dqn_profit': 0,
+        'total_ppo_profit': 0,
+        'avg_baseline_price_variance': [],
+        'avg_dqn_price_variance': [],
+        'avg_ppo_price_variance': []
+    }
+
+    # Process each item
+    for _, item_row in tqdm(item_info.iterrows(), total=len(item_info), desc="Processing items"):
+        item_id = item_row['Item']
+        item_name = item_row['Item Name'] if 'Item Name' in item_row else f"Item {item_id}"
+
+        try:
+            # Calculate baseline performance
+            baseline_results = calculate_baseline_performance(
+                data_path,
+                item_info,
+                item_id,
+                date_range
+            )
+
+            # Run comparative analysis
+            results = run_comparative_analysis(
+                item_id=item_id,
+                date_range=date_range,
+                dqn_model_path=dqn_model_path,
+                ppo_model_path=ppo_model_path,
+                data_path=data_path
+            )
+
+            # Calculate metrics for this item
+            baseline_profit = sum(baseline_results['profits'])
+            dqn_profit = sum(results['dqn']['profits'])
+            ppo_profit = sum(results['ppo']['profits'])
+
+            baseline_price_var = np.var(baseline_results['prices'])
+            dqn_price_var = np.var(results['dqn']['prices'])
+            ppo_price_var = np.var(results['ppo']['prices'])
+
+            # Calculate profit increases
+            dqn_profit_increase = (
+                        (dqn_profit - baseline_profit) / baseline_profit * 100) if baseline_profit != 0 else 0
+            ppo_profit_increase = (
+                        (ppo_profit - baseline_profit) / baseline_profit * 100) if baseline_profit != 0 else 0
+
+            # Store results for this item
+            item_results = {
+                'item_id': item_id,
+                'item_name': item_name,
+                'baseline_profit': baseline_profit,
+                'dqn_profit': dqn_profit,
+                'ppo_profit': ppo_profit,
+                'dqn_profit_increase_pct': dqn_profit_increase,
+                'ppo_profit_increase_pct': ppo_profit_increase,
+                'baseline_price_variance': baseline_price_var,
+                'dqn_price_variance': dqn_price_var,
+                'ppo_price_variance': ppo_price_var
+            }
+
+            all_items_results.append(item_results)
+
+            # Update overall metrics
+            overall_metrics['total_baseline_profit'] += baseline_profit
+            overall_metrics['total_dqn_profit'] += dqn_profit
+            overall_metrics['total_ppo_profit'] += ppo_profit
+            overall_metrics['avg_baseline_price_variance'].append(baseline_price_var)
+            overall_metrics['avg_dqn_price_variance'].append(dqn_price_var)
+            overall_metrics['avg_ppo_price_variance'].append(ppo_price_var)
+
+        except Exception as e:
+            print(f"Error processing item {item_id}: {str(e)}")
+            continue
+
+    # Create DataFrame with all results
+    results_df = pd.DataFrame(all_items_results)
+
+    # Calculate overall averages
+    overall_metrics['avg_baseline_price_variance'] = np.mean(overall_metrics['avg_baseline_price_variance'])
+    overall_metrics['avg_dqn_price_variance'] = np.mean(overall_metrics['avg_dqn_price_variance'])
+    overall_metrics['avg_ppo_price_variance'] = np.mean(overall_metrics['avg_ppo_price_variance'])
+
+    # Add overall profit increases
+    overall_metrics['total_dqn_profit_increase_pct'] = (
+            (overall_metrics['total_dqn_profit'] - overall_metrics['total_baseline_profit']) /
+            overall_metrics['total_baseline_profit'] * 100
+    )
+    overall_metrics['total_ppo_profit_increase_pct'] = (
+            (overall_metrics['total_ppo_profit'] - overall_metrics['total_baseline_profit']) /
+            overall_metrics['total_baseline_profit'] * 100
+    )
+
+    # Save results to CSV
+    results_df.to_csv(output_path, index=False)
+
+    print("\nAnalysis Complete!")
+    print(f"\nOverall Metrics:")
+    print(f"Total Baseline Profit: ${overall_metrics['total_baseline_profit']:,.2f}")
+    print(
+        f"Total DQN Profit: ${overall_metrics['total_dqn_profit']:,.2f} ({overall_metrics['total_dqn_profit_increase_pct']:.2f}% increase)")
+    print(
+        f"Total PPO Profit: ${overall_metrics['total_ppo_profit']:,.2f} ({overall_metrics['total_ppo_profit_increase_pct']:.2f}% increase)")
+    print(f"\nAverage Price Variance:")
+    print(f"Baseline: {overall_metrics['avg_baseline_price_variance']:.2f}")
+    print(f"DQN: {overall_metrics['avg_dqn_price_variance']:.2f}")
+    print(f"PPO: {overall_metrics['avg_ppo_price_variance']:.2f}")
+
+    return results_df, overall_metrics
+
+
+def run_single_item_analysis(item_id):
     # Example date and item
-    item_id = 105  # Samosas
-    start_date = datetime(2022, 7, 1)
-    date_range = [start_date + timedelta(days=x) for x in range(30)]  # One month analysis
+    item_id = 106  # Samosas
+    start_date = datetime(2022, 1, 1)
+    date_range = [start_date + timedelta(days=x) for x in range(365)]  # One month analysis
 
     # Load item info for baseline calculation
     item_info = pd.read_csv('../data_cleaning/ItemPrices_cleaned.csv')
@@ -343,7 +504,6 @@ if __name__ == "__main__":
     print("\nCalculating performance metrics...")
     metrics_df = calculate_performance_metrics(results, baseline_results)
 
-    # Print summary statistics
     print("\nPerformance Metrics Summary:")
     print(f"\nTotal Profits:")
     print(f"Baseline: ${metrics_df.loc['total_profit', 'Baseline']:,.2f}")
@@ -358,5 +518,12 @@ if __name__ == "__main__":
     print(f"PPO vs DQN: ${metrics_df.loc['total_profit', 'PPO_vs_DQN_profit_diff']:,.2f} "
           f"({metrics_df.loc['total_profit', 'PPO_vs_DQN_%']:,.2f}%)")
 
-    # Save detailed metrics to CSV
     metrics_df.to_csv('performance_metrics.csv')
+
+if __name__ == "__main__":
+    results_df, overall_metrics = run_full_comparative_analysis(
+        dqn_model_path="DQN_agent/dqn_multi_item_pricing",
+        ppo_model_path="PPO_agent/ppo_multi_item_pricing",
+        data_path="../data_cleaning/Full_Dataset.csv",
+        item_prices_path="../data_cleaning/ItemPrices_cleaned.csv"
+    )
