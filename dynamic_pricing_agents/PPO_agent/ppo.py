@@ -1,18 +1,21 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+import torch.nn as nn
 from customer_simulation.customer_simulation import CustomerSimulator
 
 
 class DynamicPricingEnv(gym.Env):
-    def __init__(self, data):
+    def __init__(self, data, item_info):
         super(DynamicPricingEnv, self).__init__()
 
+        # Store both transaction data and item information
         self.data = data.reset_index(drop=True)
+        self.item_info = item_info
         self.current_step = 0
         self.max_steps = len(self.data) - 1
 
@@ -27,57 +30,128 @@ class DynamicPricingEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Define observation space: Current price and remaining quantity
         self.observation_space = spaces.Box(
-            low=0,
+            low=-np.inf,
             high=np.inf,
-            shape=(2,),
+            shape=(8,),
+            # [price, quantity, profit_momentum, hour_of_day, day_of_week, base_price, cost, category_encoding]
             dtype=np.float32
         )
 
-        self.profit_history = []
-        self.price_history = []
-        self.item_ids = []
-        self.time_stamps = []
-        self.previous_price = None  # To keep track of the previous price
+        # Initialize history
+        self.profit_history = {}  # Dictionary to track profit history per item
+        self.price_history = {}  # Dictionary to track price history per item
+        self.momentum_window = 3
 
-    def reset(self):
+    def calculate_profit_momentum(self, item_id):
+        """Calculate profit momentum based on recent history for specific item"""
+        if item_id not in self.profit_history or len(self.profit_history[item_id]) < 2:
+            return 0.0
+
+        recent_profits = self.profit_history[item_id][-self.momentum_window:]
+        if len(recent_profits) < 2:
+            return 0.0
+
+        return np.mean(np.diff(recent_profits))
+
+    def reset(self, seed=None):
+        super().reset(seed=seed)
+
         self.current_step = 0
-        self.previous_price = self.data.loc[self.current_step]['Price']
+        current_item = self.data.loc[self.current_step]['Item']
+        self.previous_price = self.item_info.loc[self.item_info['Item'] == current_item, 'Price'].values[0]
+
+        # Reset histories for all items
+        self.profit_history = {item: [] for item in self.item_info['Item']}
+        self.price_history = {item: [] for item in self.item_info['Item']}
+
         obs = self._get_observation()
-        return obs
+        return obs, {}
+
+    def _get_category_encoding(self, category):
+        """Convert category to numerical encoding"""
+        category_map = {
+            'Appetizers': 0,
+            'Main Courses': 1,
+            'Sides': 2,
+            'Desserts': 3,
+            'Beverages': 4
+        }
+        return category_map.get(category, -1)
 
     def _get_observation(self):
         current_data = self.data.loc[self.current_step]
+        current_datetime = pd.to_datetime(f"{current_data['Date']} {current_data['Time']}")
+        current_item = current_data['Item']
+
+        # Get item information
+        item_data = self.item_info[self.item_info['Item'] == current_item].iloc[0]
+
         obs = np.array([
             self.previous_price,
-            current_data['Quantity']
+            current_data['Quantity'],
+            self.calculate_profit_momentum(current_item),
+            current_datetime.hour / 24.0,  # Normalized hour
+            current_datetime.dayofweek / 6.0,  # Normalized day of week
+            item_data['Price'],  # Base price
+            item_data['Cost'],  # Cost
+            self._get_category_encoding(item_data['Category']) / 4.0  # Normalized category
         ], dtype=np.float32)
         return obs
+
+    def calculate_reward(self, profit, price_change, item_id):
+        """Enhanced reward function with category-specific considerations"""
+        # Get item category
+        category = self.item_info.loc[self.item_info['Item'] == item_id, 'Category'].values[0]
+
+        # Base reward is profit
+        reward = profit
+
+        # Add stability bonus (varies by category)
+        stability_weights = {
+            'Appetizers': 0.1,
+            'Main Courses': 0.15,
+            'Sides': 0.05,
+            'Desserts': 0.1,
+            'Beverages': 0.05
+        }
+        stability_weight = stability_weights.get(category, 0.1)
+        stability_bonus = stability_weight * profit * (1.0 - abs(price_change))
+
+        # Add momentum bonus
+        momentum = self.calculate_profit_momentum(item_id)
+        momentum_bonus = 0.1 * profit * (1.0 if momentum > 0 else -0.5)
+
+        return reward + stability_bonus + momentum_bonus
 
     def step(self, action):
         # Get current data point
         current_data = self.data.loc[self.current_step]
         item_id = current_data['Item']
-        base_price = current_data['Price']
-        cost = current_data['Cost']
+
+        # Get item information
+        item_info = self.item_info[self.item_info['Item'] == item_id].iloc[0]
+        base_price = item_info['Price']
+        cost = item_info['Cost']
+
         date = current_data['Date']
         time = current_data['Time']
         initial_quantity = current_data['Quantity']
 
         # Apply price adjustment
-        price_change_percentage = action[0]  # This should be between -0.1 and 0.1
+        price_change_percentage = action[0]
         new_price = self.previous_price * (1 + price_change_percentage)
+        noise = np.random.normal(0, 0.001)
+        new_price *= (1 + noise)
 
-        # Ensure new price does not exceed 200% of base price and not below 50% of base price
+        # Ensure new price stays within reasonable bounds
         new_price = min(new_price, base_price * self.customer_simulator.MAX_PRICE_RATIO)
         new_price = max(new_price, base_price * 0.5)
 
-        # Combine date and time into a datetime object
+        # Simulate customer behavior
         date_time_str = f"{date} {time}"
         date_time_obj = pd.to_datetime(date_time_str)
 
-        # Simulate customer purchases using CustomerSimulator
         simulation_result = self.customer_simulator.simulate_day(
             item_id=item_id,
             price=new_price,
@@ -85,119 +159,82 @@ class DynamicPricingEnv(gym.Env):
             initial_quantity=initial_quantity
         )
 
+        # Calculate results
         total_sold = simulation_result['total_sold']
         total_revenue = simulation_result['total_revenue']
         remaining_quantity = simulation_result['remaining_quantity']
-
-        # Calculate profit
         profit = (new_price - cost) * total_sold
 
-        # Set reward as profit
-        reward = profit
+        # Calculate reward
+        reward = self.calculate_reward(profit, price_change_percentage, item_id)
 
-        # Move to the next time step
+        # Update histories
+        if item_id not in self.profit_history:
+            self.profit_history[item_id] = []
+            self.price_history[item_id] = []
+
+        self.profit_history[item_id].append(profit)
+        self.price_history[item_id].append(new_price)
+        self.previous_price = new_price
+
+        # Move to next step
         self.current_step += 1
         done = self.current_step >= self.max_steps
 
-        # Update previous price
-        self.previous_price = new_price
-
         # Get next observation
-        if not done:
-            obs = self._get_observation()
-        else:
-            obs = np.zeros(self.observation_space.shape, dtype=np.float32)
+        obs = self._get_observation() if not done else np.zeros(self.observation_space.shape)
 
         info = {
+            'item_id': item_id,
             'new_price': new_price,
             'total_sold': total_sold,
             'remaining_quantity': remaining_quantity,
             'total_revenue': total_revenue,
-            'profit': profit
+            'profit': profit,
+            'price_change': price_change_percentage
         }
 
-        self.profit_history.append(profit)
-        self.price_history.append(new_price)
-        self.item_ids.append(item_id)
-        self.time_stamps.append(date_time_obj)
-
-        return obs, reward, done, info
+        return obs, reward, done, False, info
 
 
 if __name__ == "__main__":
-    # Load dataset
+    # Load datasets
     data = pd.read_csv('../../data_cleaning/Full_Dataset.csv')
+    item_info = pd.read_csv('../../data_cleaning/ItemPrices_cleaned.csv')
 
-    # Train on a single item
-    item_id = 106
-    date_of_interest = '2022-01-01'
+    # Sort data chronologically
+    data['DateTime'] = pd.to_datetime(data['Date'] + ' ' + data['Time'])
+    data = data.sort_values('DateTime').reset_index(drop=True)
 
-    # Filter data for the specific item and date
-    item_data = data[(data['Item'] == item_id) & (data['Date'] == date_of_interest)]
-
-    # Ensure that there is only one record per date/time for the item
-    # Group by 'Date', 'Time', and 'Item' and aggregate
-    item_data = item_data.groupby(['Date', 'Time', 'Item']).agg({
-        'Price': 'mean',
-        'Cost': 'mean',
-        'Quantity': 'sum',
-        # other fields as needed
-    }).reset_index()
-
-    # Sort data by time
-    item_data['DateTime'] = pd.to_datetime(item_data['Date'] + ' ' + item_data['Time'])
-    item_data = item_data.sort_values('DateTime').reset_index(drop=True)
-
-    # Initialize the environment
-    env = DynamicPricingEnv(item_data)
+    # Initialize environment
+    env = DynamicPricingEnv(data, item_info)
     env = DummyVecEnv([lambda: env])
 
-    # Initialize the PPO agent
-    model = PPO('MlpPolicy', env, verbose=1)
+    model = PPO(
+        'MlpPolicy',
+        env,
+        learning_rate=3e-4,
+        n_steps=2048,
+        batch_size=256,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        ent_coef=0.01,
+        vf_coef=0.5,
+        max_grad_norm=0.5,
+        policy_kwargs={
+            "net_arch": [dict(pi=[512, 256, 128], vf=[512, 256, 128])],
+            "activation_fn": nn.ReLU
+        },
+        verbose=1
+    )
 
     # Train the agent
-    model.learn(total_timesteps=5000)
+    print("Starting training...")
+    total_timesteps = 100000
+    model.learn(total_timesteps=total_timesteps)
 
-    # Save the model
-    model.save("ppo_dynamic_pricing")
+    model.save("ppo_multi_item_pricing")
 
-    # Access the environment instance to get the stored data
-    env_instance = env.envs[0]
-
-    # Create a DataFrame for the stored data
-    results_df = pd.DataFrame({
-        'Time': env_instance.time_stamps,
-        'Item_ID': env_instance.item_ids,
-        'Price': env_instance.price_history,
-        'Profit': env_instance.profit_history
-    })
-
-    # Sort by time
-    results_df = results_df.sort_values('Time').reset_index(drop=True)
-
-    results_df.to_csv('price_time_data.csv', index=False)
-    print("\nPrice and time data saved to 'price_time_data.csv'")
-
-    # Plot price changes for the item over the course of the day
-    plt.figure(figsize=(12, 6))
-    plt.plot(results_df['Time'], results_df['Price'], marker='o', color='orange', label='Price')
-    plt.title(f'Price Changes for Item ID {item_id} on {date_of_interest}')
-    plt.xlabel('Time')
-    plt.ylabel('Price')
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-
-    # Plot total profit made during one day
-    plt.figure(figsize=(12, 6))
-    plt.plot(results_df['Time'], results_df['Profit'].cumsum(), marker='o', label='Cumulative Profit')
-    plt.title(f'Cumulative Profit for Item ID {item_id} on {date_of_interest}')
-    plt.xlabel('Time')
-    plt.ylabel('Cumulative Profit')
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    print("Training and evaluation completed")

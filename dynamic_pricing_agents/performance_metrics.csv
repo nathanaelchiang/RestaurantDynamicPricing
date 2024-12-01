@@ -1,6 +1,6 @@
 ,DQN,PPO,PPO_vs_DQN_%
-average_daily_profit,55.47,44.55,-19.69
-profit_std,23.29,27.36,17.48
-price_stability,1.79,1.79,0.0
-avg_price,18.33,16.69,-8.95
-total_sales,66.0,74.0,12.12
+average_daily_profit,120.47,120.13,-0.28
+profit_std,45.74,44.56,-2.58
+price_stability,0.86,0.74,-13.95
+avg_price,16.5,16.48,-0.12
+total_sales,182.0,182.0,0.0

@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from scipy.stats import poisson, norm
+import numpy as np
 
 
 class CustomerSimulator:
@@ -14,46 +15,50 @@ class CustomerSimulator:
         self.setup_price_sensitivity()
         self.MAX_PRICE_RATIO = 2.0  # No purchases allowed at 200% or more of base price
 
+        # Initialize memory of recent purchases for momentum
+        self.purchase_history = {}
+
     def setup_time_patterns(self):
         """
         Calculate time-based purchasing patterns from historical data
         """
-        # Hour of day patterns (24-hour format)
+        # Hour of day patterns (24-hour format) - Adjusted for smoother transitions
         self.hourly_patterns = {
-            'breakfast': {'peak': 8, 'std': 1.5, 'weight': 0.3},
-            'lunch': {'peak': 12, 'std': 1.5, 'weight': 0.4},
-            'dinner': {'peak': 18, 'std': 2, 'weight': 0.3}
+            'breakfast': {'peak': 8, 'std': 2.0, 'weight': 0.3},
+            'lunch': {'peak': 12, 'std': 2.0, 'weight': 0.4},
+            'dinner': {'peak': 18, 'std': 2.5, 'weight': 0.3}
         }
 
-        # Day of week patterns (0 = Monday, 6 = Sunday)
+        # Day of week patterns - More gradual progression
         self.weekday_weights = {
-            0: 0.8,  # Monday
-            1: 0.8,
-            2: 0.9,
+            0: 0.85,  # Monday
+            1: 0.90,
+            2: 0.95,
             3: 1.0,
-            4: 1.2,
-            5: 1.4,  # Saturday
-            6: 1.3  # Sunday
+            4: 1.1,
+            5: 1.2,  # Saturday
+            6: 1.15  # Sunday
         }
 
     def setup_price_sensitivity(self):
         """
         Calculate price sensitivity parameters for different customer segments
+        Adjusted for more balanced price sensitivity
         """
         self.customer_segments = {
             'price_sensitive': {
-                'weight': 0.3,
-                'base_elasticity': -2.0,
-                'max_price_multiplier': 1.2
+                'weight': 0.25,  # Reduced from 0.3
+                'base_elasticity': -1.5,  # Less extreme than -2.0
+                'max_price_multiplier': 1.3  # Slightly more tolerant
             },
             'moderate': {
                 'weight': 0.5,
-                'base_elasticity': -1.0,
-                'max_price_multiplier': 1.5
+                'base_elasticity': -0.8,  # Less sensitive than -1.0
+                'max_price_multiplier': 1.6
             },
             'premium': {
-                'weight': 0.2,
-                'base_elasticity': -0.5,
+                'weight': 0.25,  # Increased from 0.2
+                'base_elasticity': -0.3,  # Less sensitive than -0.5
                 'max_price_multiplier': 2.0
             }
         }
@@ -82,37 +87,37 @@ class CustomerSimulator:
 
     def get_price_multiplier(self, item_price, base_price):
         """
-        Calculate demand multiplier based on price differences and customer segments.
-        Returns 0 if price is 200% or more of base price.
+        Enhanced price multiplier calculation with diminishing returns
         """
         price_ratio = item_price / base_price
 
-        # Return 0 if price is 200% or more of base price
         if price_ratio >= self.MAX_PRICE_RATIO:
             return 0
 
-        # Weighted average of different customer segment responses
         multiplier = 0
         for segment, params in self.customer_segments.items():
-            # Calculate segment-specific response
+            # Calculate segment-specific response with diminishing returns
             if price_ratio > params['max_price_multiplier']:
-                segment_multiplier = 0.1  # Minimal demand
+                segment_multiplier = 0.1
             else:
+                # Add diminishing returns effect
                 elasticity_effect = (price_ratio - 1) * params['base_elasticity']
-                segment_multiplier = max(0.1, 1 + elasticity_effect)
+                # Sigmoid function to create smoother transition
+                diminishing_factor = 1 / (1 + np.exp(2 * (price_ratio - params['max_price_multiplier'])))
+                segment_multiplier = max(0.1, (1 + elasticity_effect) * diminishing_factor)
 
             multiplier += segment_multiplier * params['weight']
 
-        return multiplier
+        # Add small random variation (market noise)
+        noise = np.random.normal(1, 0.02)  # 2% standard deviation
+        multiplier *= noise
+
+        return max(0.1, multiplier)
 
     def simulate_purchase_decision(self, item_id, price, datetime_obj, quantity_available):
         """
-        Simulate whether a purchase occurs based on all factors
-
-        Returns:
-        - int: Number of items purchased (0 if no purchase)
+        Enhanced purchase simulation with momentum effects
         """
-        # Get base parameters for the item
         item_data = self.data[self.data['Item'] == item_id]
         if item_data.empty:
             print(f"No historical data found for Item ID {item_id}.")
@@ -121,7 +126,6 @@ class CustomerSimulator:
         base_price = item_data['Price'].mean()
         base_demand = max(0.1, item_data['Count_x'].mean())
 
-        # Check price ceiling
         if price / base_price >= self.MAX_PRICE_RATIO:
             return 0
 
@@ -129,35 +133,63 @@ class CustomerSimulator:
         time_mult = self.get_time_multiplier(datetime_obj)
         price_mult = self.get_price_multiplier(price, base_price)
 
-        # If price multiplier is 0, no purchase will occur
         if price_mult == 0:
             return 0
 
-        # Adjust for available quantity
-        quantity_mult = min(1.0, quantity_available / base_demand)
+        # Add momentum effect based on recent purchase history
+        momentum_mult = self.calculate_momentum_effect(item_id, datetime_obj)
+
+        # Adjust for available quantity with smoother transition
+        quantity_ratio = quantity_available / base_demand
+        quantity_mult = 2 / (1 + np.exp(-3 * quantity_ratio)) - 1  # Sigmoid function
 
         # Calculate final lambda for Poisson distribution
-        adjusted_lambda = base_demand * time_mult * price_mult * quantity_mult
+        adjusted_lambda = base_demand * time_mult * price_mult * quantity_mult * momentum_mult
 
-        # Generate purchase quantity
-        purchase_quantity = min(
-            poisson.rvs(adjusted_lambda),
-            quantity_available
-        )
+        # Generate purchase quantity with minimum threshold
+        purchase_quantity = max(
+            1,  # Minimum purchase of 1 if any purchase occurs
+            min(
+                poisson.rvs(adjusted_lambda),
+                quantity_available
+            )
+        ) if np.random.random() < 0.7 else 0  # 70% chance of purchase if conditions are met
 
         return purchase_quantity
 
+    def calculate_momentum_effect(self, item_id, datetime_obj):
+        """
+        Calculate momentum effect based on recent purchase history
+        """
+        if item_id not in self.purchase_history:
+            self.purchase_history[item_id] = []
+
+        # Clean old history (keep last 24 hours)
+        self.purchase_history[item_id] = [
+            (dt, qty) for dt, qty in self.purchase_history[item_id]
+            if (datetime_obj - dt).total_seconds() <= 86400
+        ]
+
+        if not self.purchase_history[item_id]:
+            return 1.0
+
+        # Calculate recent purchase momentum
+        recent_quantities = [qty for _, qty in self.purchase_history[item_id]]
+        momentum = sum(recent_quantities) / len(recent_quantities)
+
+        # Normalize momentum effect
+        momentum_mult = 1 + 0.1 * np.tanh(momentum - 1)  # Using tanh for smooth bounded effect
+
+        return momentum_mult
+
     def simulate_day(self, item_id, price, date, initial_quantity):
         """
-        Simulate a full day of purchases
-
-        Returns:
-        - dict: Summary of the day's transactions
+        Simulate a full day of purchases with enhanced tracking
         """
         results = []
         remaining_quantity = initial_quantity
 
-        # Get base price for validation
+        # Validate price
         item_data = self.data[self.data['Item'] == item_id]
         if not item_data.empty:
             base_price = item_data['Price'].mean()
@@ -170,7 +202,7 @@ class CustomerSimulator:
                     'message': f'No purchases simulated. Price (${price:.2f}) is {(price / base_price) * 100:.1f}% of base price (${base_price:.2f}), exceeding 200% limit.'
                 }
 
-        # Simulate each hour of the day
+        # Simulate each hour with momentum tracking
         for hour in range(24):
             if remaining_quantity <= 0:
                 break
@@ -185,6 +217,7 @@ class CustomerSimulator:
             )
 
             if purchase_quantity > 0:
+                # Record transaction
                 results.append({
                     'datetime': current_datetime,
                     'quantity': purchase_quantity,
@@ -192,7 +225,13 @@ class CustomerSimulator:
                     'revenue': purchase_quantity * price
                 })
 
+                # Update remaining quantity
                 remaining_quantity -= purchase_quantity
+
+                # Update purchase history for momentum calculation
+                if item_id not in self.purchase_history:
+                    self.purchase_history[item_id] = []
+                self.purchase_history[item_id].append((current_datetime, purchase_quantity))
 
         return {
             'transactions': results,
@@ -200,39 +239,3 @@ class CustomerSimulator:
             'remaining_quantity': remaining_quantity,
             'total_revenue': sum(r['revenue'] for r in results)
         }
-
-
-# Examples
-if __name__ == "__main__":
-    simulator = CustomerSimulator('../data_cleaning/Full_Dataset.csv')
-
-    # Test normal price
-    test_date = datetime(2024, 10, 30)
-    print("\nTesting normal price:")
-    simulation_result = simulator.simulate_day(
-        item_id=209,
-        price=29.00,
-        date=test_date,
-        initial_quantity=50
-    )
-
-    print("\nSimulation Results:")
-    print(f"Total items sold: {simulation_result['total_sold']}")
-    print(f"Remaining quantity: {simulation_result['remaining_quantity']}")
-    print(f"Total revenue: ${simulation_result['total_revenue']:.2f}")
-
-    # Test price above 200% of base price
-    print("\nTesting price above 200% of base price:")
-    high_price_result = simulator.simulate_day(
-        item_id=511,
-        price=50.00,
-        date=test_date,
-        initial_quantity=50
-    )
-
-    print("\nHigh Price Simulation Results:")
-    if 'message' in high_price_result:
-        print(high_price_result['message'])
-    print(f"Total items sold: {high_price_result['total_sold']}")
-    print(f"Remaining quantity: {high_price_result['remaining_quantity']}")
-    print(f"Total revenue: ${high_price_result['total_revenue']:.2f}")

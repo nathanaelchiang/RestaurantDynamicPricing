@@ -121,16 +121,25 @@ def run_simulation(model, env, num_episodes=1):
     sales_history = []
 
     for episode in range(num_episodes):
-        obs = env.reset()
+        reset_result = env.reset()
+        if isinstance(reset_result, tuple):
+            obs = reset_result[0]  # New Gymnasium API returns (obs, info)
+        else:
+            obs = reset_result  # Old Gym API returns just obs
+
         done = False
         episode_profit = 0
 
         while not done:
             # Get action from model
-            action = model.predict(obs)[0]
+            action = model.predict(obs, deterministic=True)[0]
 
-            # Take step in environment
-            obs, reward, done, info = env.step(action)
+            step_result = env.step(action)
+            if len(step_result) == 5:  # New Gymnasium API
+                obs, reward, terminated, truncated, info = step_result
+                done = terminated or truncated
+            else:  # Old Gym API
+                obs, reward, done, info = step_result
 
             # Record results
             episode_profit += reward
@@ -168,8 +177,6 @@ def calculate_performance_metrics(results):
     }
 
     metrics_df = pd.DataFrame(metrics).round(2)
-
-    # Percent difference column
     metrics_df['PPO_vs_DQN_%'] = ((metrics_df['PPO'] - metrics_df['DQN']) / metrics_df['DQN'] * 100).round(2)
 
     return metrics_df
@@ -198,14 +205,15 @@ def run_comparative_analysis(item_id, date_range, dqn_model_path, ppo_model_path
             continue
 
         # Run DQN simulation
-        dqn_env = DynamicPricingEnvDQN(daily_data)
+        item_info = pd.read_csv('../data_cleaning/ItemPrices_cleaned.csv')
+        dqn_env = DynamicPricingEnvDQN(daily_data, item_info)
         dqn_results = run_simulation(dqn_model, dqn_env)
         results['dqn']['profits'].append(dqn_results['total_profit'])
         results['dqn']['prices'].extend(dqn_results['price_history'])
         results['dqn']['sales'].extend(dqn_results['sales_history'])
 
         # Run PPO simulation
-        ppo_env = DynamicPricingEnv(daily_data)
+        ppo_env = DynamicPricingEnv(daily_data, item_info)
         ppo_results = run_simulation(ppo_model, ppo_env)
         results['ppo']['profits'].append(ppo_results['total_profit'])
         results['ppo']['prices'].extend(ppo_results['price_history'])
@@ -225,8 +233,8 @@ if __name__ == "__main__":
     results = run_comparative_analysis(
         item_id=item_id,
         date_range=date_range,
-        dqn_model_path="DQN_agent/dqn_dynamic_pricing",
-        ppo_model_path="PPO_agent/ppo_dynamic_pricing",
+        dqn_model_path="DQN_agent/dqn_multi_item_pricing",
+        ppo_model_path="PPO_agent/ppo_multi_item_pricing",
         data_path="../data_cleaning/Full_Dataset.csv"
     )
 
@@ -239,4 +247,3 @@ if __name__ == "__main__":
     print(metrics_df)
 
     metrics_df.to_csv('performance_metrics.csv')
-    print("\nSaved performance metrics to 'performance_metrics.csv'")
