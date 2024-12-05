@@ -66,7 +66,7 @@ Ensure you have the following installed:
 2. Navigate to the project directory:
 
    ```bash
-   cd [insert]
+   cd RestaurantDynamicPricing
    ```
 
 3. Install the required dependencies:
@@ -75,15 +75,36 @@ Ensure you have the following installed:
    pip install -r requirements.txt
    ```
 
-4. Run the customer simulation:
+4. Run statistc calculations:
 
    ```bash
-   python [insert]
+   cd statistic_calculations
+   python arc_elasticity.py
+   python distributions.py
+   python weight_calculator.py
    ```
 
-5. Train and test PPO and DQN models:
+5. Run the customer simulation:
+
    ```bash
-   python [insert]
+   cd ../customer_simulation
+   python customer_simulation.py
+   python interactive_simulation.py
+   ```
+
+6. Train and test PPO and DQN models:
+   ```bash
+   cd ../dynamic_pricing_agents/PPO_agent
+   python ppo.py
+   ```
+   ```bash
+   cd ../DQN_agent
+   python dqn.py
+   ```
+7. Compare model performance:
+   ```bash
+   cd ../analysis
+   python analysis.py
    ```
 
 ---
