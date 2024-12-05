@@ -55,7 +55,7 @@ Ensure you have the following installed:
 - stable-baselines3 (for reinforcement learning)
 - gym (for environment simulations)
 
-### **Installation**
+### **Installation and Run**
 
 1. Clone the repository:
 
@@ -139,6 +139,6 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 
 ---
 
-## **Acknowledgments**
+<!-- ## **Acknowledgments**
 
---[insert]
+--[insert] -->
