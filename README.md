@@ -33,6 +33,7 @@ This project uses advanced reinforcement learning models—Proximal Policy Optim
 - **customer_simulation.py**: Creates a simulation environment to model customer behavior and price sensitivity.
 - **interactive_simulation.py**: Extends customer simulation with individual customer personas for a realistic environment.
 
+- **analysis.py**: Compares DQN and PPO pricing strategies against a baseline over multiple items and dates.
 - **dqn.py**: Trains Deep Q-Learning model to optimize pricing strategies.
 - **ppo.py**: Trains Proximal Policy Optimization model to optimize pricing strategies.
 
