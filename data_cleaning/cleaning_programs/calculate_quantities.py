@@ -1,28 +1,41 @@
 import pandas as pd
+import os
 
-# Load the merged dataset
-file_path = '../Merged_Orders_Items.csv'
-df = pd.read_csv(file_path)
+# Locate the script and datasets directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+datasets_dir = os.path.join(script_dir, "../datasets")
 
-# Convert 'Date' column to datetime
-df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+# File paths
+orders_items_file = os.path.join(datasets_dir, "Merged_Orders_Items.xlsx")
+single_day_highs_file = os.path.join(datasets_dir, "Single_Day_Highs.xlsx")
+output_file = os.path.join(datasets_dir, "Full_Dataset.xlsx")
 
-# Step 1: Calculate the single day high for each item
-daily_item_sales = df.groupby(['Item', 'Item Name', 'Date']).agg({'Count': 'sum'}).reset_index()
-single_day_highs = daily_item_sales.groupby(['Item', 'Item Name']).agg({'Count': 'max'}).reset_index()
+# Validate if input files exist
+if not os.path.exists(orders_items_file):
+    raise FileNotFoundError(f"Orders and Items file not found: {orders_items_file}")
+if not os.path.exists(single_day_highs_file):
+    raise FileNotFoundError(f"Single Day Highs file not found: {single_day_highs_file}")
 
-# Merge the single day highs back to the main dataframe
-df = pd.merge(df, single_day_highs[['Item', 'Item Name', 'Count']], on=['Item', 'Item Name'], how='left')
-df.rename(columns={'Count_y': 'Single Day High'}, inplace=True)
+# Load the datasets
+df = pd.read_excel(orders_items_file)
+single_day_highs = pd.read_excel(single_day_highs_file)
 
-# Step 2: Initialize the quantity for each day with the single day high
-df['Quantity'] = df['Single Day High']
+# Format and validate 'Date' and 'Count' columns
+df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+df = df.dropna(subset=['Date'])  # Drop invalid dates
+df['Count'] = pd.to_numeric(df['Count'], errors='coerce')
+df = df.dropna(subset=['Count'])  # Drop invalid counts
 
+# Merge the single day highs into the main dataframe
+df = pd.merge(df, single_day_highs[['Item', 'Item Name', 'Single Day High', 'Daily Starting Quantity']], 
+              on=['Item', 'Item Name'], how='left')
 
-# Step 3: Subtract 1 from quantity after each order and reset at the start of each day
-# We iterate over the dataframe and apply the rule: subtract 1 for each order and reset at the start of a new day
+# Initialize the quantity for each day with the daily starting quantity
+df['Available Stock'] = df['Daily Starting Quantity']
+
+# Update quantities dynamically based on orders
 def update_quantity(df):
-    df = df.sort_values(by=['Date', 'Time'])  # Ensure the data is sorted by date and time
+    df = df.sort_values(by=['Date', 'Time'])  # Sort by date and time
     current_day = None
     quantities = {}
 
@@ -30,20 +43,26 @@ def update_quantity(df):
         item = row['Item']
         if row['Date'] != current_day:
             current_day = row['Date']
-            quantities = {item: row['Single Day High'] for item in df['Item'].unique()}
+            quantities = {item: row['Daily Starting Quantity'] for item in df['Item'].unique()}
+        
+        # Update quantity: subtract the count from current stock
+        quantities[item] -= row['Count']
+        
+        # Ensure that stock doesn't go below zero
+        if quantities[item] < 0:
+            quantities[item] = 0
+        
+        # Ensure stock doesn't exceed the daily starting quantity
+        quantities[item] = min(quantities[item], row['Daily Starting Quantity'])
 
-        # Update quantity after the order
-        df.at[i, 'Quantity'] = quantities[item]
-        quantities[item] -= 1  # Subtract 1 after each order
-
+        # Update the Available Stock column
+        df.at[i, 'Available Stock'] = quantities[item]
+    
     return df
 
-
-# Apply the update quantity function to the dataframe
+# Apply the update quantity function
 df = update_quantity(df)
 
-# Optionally, save the updated dataframe to a new CSV file
-df.to_csv('Full_Dataset.csv', index=False)
-
-# Display the first few rows to verify
-df.head()
+# Save the updated dataset
+df.to_excel(output_file, index=False)
+print(f"Updated dataset saved successfully.")
